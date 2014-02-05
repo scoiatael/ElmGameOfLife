@@ -1,31 +1,41 @@
 -- vim: syntax=haskell:
-
 import Window
 import Mouse
 import Dict
+import List
 
 -- Input
 
 type Position = {x:Int, y:Int}
 
+type Comp = (Int, Int)
+
+toComp : Position -> Comp
+toComp {x,y} = (x,y)
+
+fromTuple : (Int,Int) -> Position
+fromTuple (x,y) = {x = x, y = y}
+
 type Input = { position : Position }
 
 clock = inSeconds <~ every second
 
-input : Input
-input = sampleOn (merge (lift (\_ -> () ) clock) Mouse.clicks) ( Input <~ Mouse.position )
+input = sampleOn (clock) ( Input . fromTuple <~ Mouse.position )
+
 
 -- Model
 
 type Button = { onClick : Game -> Game, position : Position, size : Position, text : String }
 data State = Paused | Playing
-type Board = { size : Position, units : Dict.Dict Position () }
-type Game = { buttons : [ Button ], state : State, board : Board }
+type Board = { size : Position, units : Dict.Dict Comp () }
+data Game = Game { buttons : [ Button ], state : State, board : Board }
 
-type Constants = { size : Position, tileSize : Position }
+type Constants = { size : Position, tileSize : Position, winSize : Position, scale : Float }
 constants : Constants
-constants = Constants defaultSize defaultTileSize
-defaultTileSize = (20,20)
+constants = let (tx,ty) = toComp defaultTileSize in let (x,y) = toComp defaultSize in Constants defaultSize defaultTileSize ( fromTuple (tx*x, ty*y)) defaultScale
+defaultScale = 0.8
+defaultTileSize = {x = 20, y = 20}
+defaultSize = {x = 40, y = 40}
 
 -- Update
 
@@ -33,12 +43,12 @@ updateBoard : Board -> Board
 updateBoard ({units} as board) = board
 
 updateGame : Game -> Game
-updateGame ({state, board} as game) = case state of
- Paused -> game
- Playing -> {game | board <- updateBoard board}
+updateGame (Game ({state,board} as game)) = case state of
+  Paused -> Game game
+  Playing -> Game {game | board <- board |> updateBoard}
 
 buttonClick : Position -> Button -> Bool
-buttonClick {x,y} {position, size} = x >= position.x && x < position.x + size.x && y >= position.y && y < position.y + size.y 
+buttonClick {x,y} {position, size} = (x >= position.x) && (x < position.x + size.x) &&( y >= position.y) && (y < position.y + size.y)
 
 buttonHandleClick : [Button] -> Game -> Game
 buttonHandleClick s = case s of
@@ -46,39 +56,57 @@ buttonHandleClick s = case s of
   ({onClick}::_) -> onClick
 
 handleClickAt : Position -> Game -> Game
-handleClickAt pos ({buttons} as game) = let bs = filter (buttonClick pos) buttons in buttonHandleClick bs game
+handleClickAt pos ((Game {buttons}) as game) = let bs = filter (buttonClick pos) <| buttons in buttonHandleClick bs game
 
 stepGame : Input -> Game -> Game
-stepGame { delta, position } = if Mouse.isClicked then handleClickAt position else updateGame
+stepGame { position } = updateGame
 
-gameState = foldp stepGame input defaultGame
+gameState : Signal Game
+gameState = foldp stepGame defaultGame input 
 
-defaultGame = Game defaultButtons defaultState defaultBoard
+defaultGame : Game
+defaultGame = Game { buttons = defaultButtons, state =  defaultState, board =  defaultBoard}
 
-defaultSize = (40,40)
+defaultButtons : [ Button ]
 defaultButtons = []
+
+defaultState : State
 defaultState = Paused
-defaultBoard = Board constants.size Dict.empty
+
+defaultBoard : Board
+defaultBoard = { size = constants.size, units =  Dict.empty}
 
 -- Display
 
-displayState state = if state == Playing then empty else asText state
+displayState : State -> Form
+displayState state = toForm <| if state == Playing then empty else asText state
 
-placeTile {x,y} = move (x*constants.tileSize.x,y*constants.tileSize.y) 
+placeTile : Comp -> Form -> Form
+placeTile (x,y) = move (toFloat <| x * constants.tileSize.x - constants.winSize.x `div` 2, toFloat <| y * constants.tileSize.y - constants.winSize.y `div` 2) 
 
-circleAt {x,y} = oval constants.tileSize.x constants.tileSize.y |> filled white |> placeTile (x,y)
+circleAt : Comp -> Form
+circleAt ( (x,y) as coords) = toFloat constants.tileSize.x `oval` toFloat constants.tileSize.y |> filled white |> placeTile coords
 
-crossAt {x,y} = rect constants.tileSize.x constants.tileSize.y |> outlined defaultLine |> placeTile (x,y)
+crossAt : Comp -> Form
+crossAt ( (x,y) as coords) = toFloat constants.tileSize.x `rect` toFloat constants.tileSize.y |> outlined defaultLine |> placeTile coords
 
+displayTile : Dict.Dict Comp () -> Comp -> Form
 displayTile d p = if p `Dict.lookup` d /= Nothing then circleAt p else crossAt p
 
-allPairs {x,y} = map (\a ->  map (\b -> (a,b)) [0..x-1] ) [0..y-1]
+allPairs : Position -> [Comp]
+allPairs {x,y} = List.concat <| map (\a -> (map (\b -> (a,b)) [0..x-1] )) [0..y-1]
 
-displayBoard ({dict} as board) = layers <| map (displayTile dict) <| allPairs board.size.x board.size.y
+displayBoard : Board -> Form
+displayBoard ({units} as board) = group <| map (displayTile units) <| allPairs <| fromTuple (board.size.x,board.size.y)
 
-display (w,h) {buttons, board, state} = container w h middle <| collage constants.size.x constants.size.y [
-  displayState state,
-  displayBoard board
-  ] ++ map displayTile buttons
+displayButton : Button -> Form
+displayButton {position, size, text} = toForm <| asText text 
+
+scaleElement w h el = let fw = toFloat w in let fh = toFloat h in collage w h [ 
+  scale ( (fw / toFloat (widthOf el) * constants.scale) `min` (fh / toFloat (heightOf el) * constants.scale) ) <| toForm el ]
+
+display (w,h) (Game {buttons, board, state}) = layers [ 
+  container w h middle <| scaleElement w h <| collage (constants.winSize.x + constants.tileSize.x) (constants.winSize.y + constants.tileSize.y) <| [ displayBoard board ],
+  container w h middle <| collage constants.winSize.x constants.winSize.y <| [ displayState state ] ++ map displayButton buttons ]
 
 main = display <~ Window.dimensions ~ gameState
