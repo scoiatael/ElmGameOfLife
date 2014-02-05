@@ -68,7 +68,7 @@ defaultGame : Game
 defaultGame = Game { buttons = defaultButtons, state =  defaultState, board =  defaultBoard}
 
 defaultButtons : [ Button ]
-defaultButtons = []
+defaultButtons = [ unpauseButton ]
 
 defaultState : State
 defaultState = Paused
@@ -76,10 +76,12 @@ defaultState = Paused
 defaultBoard : Board
 defaultBoard = { size = constants.size, units =  Dict.empty}
 
+unpauseButton = { onClick = \(Game g) -> Game {g | state <- Playing }, position = fromTuple (-20,-20), size = fromTuple (100, 30), text = "Unpause" }
+
 -- Display
 
 displayState : State -> Form
-displayState state = toForm <| if state == Playing then empty else asText state
+displayState state = scale 2 <| toForm <| if state == Playing then empty else asText state
 
 placeTile : Comp -> Form -> Form
 placeTile (x,y) = move (toFloat <| x * constants.tileSize.x - constants.winSize.x `div` 2, toFloat <| y * constants.tileSize.y - constants.winSize.y `div` 2) 
@@ -99,14 +101,19 @@ allPairs {x,y} = List.concat <| map (\a -> (map (\b -> (a,b)) [0..x-1] )) [0..y-
 displayBoard : Board -> Form
 displayBoard ({units} as board) = group <| map (displayTile units) <| allPairs <| fromTuple (board.size.x,board.size.y)
 
+buttonGreen = rgb 60 100 60
+
 displayButton : Button -> Form
-displayButton {position, size, text} = toForm <| asText text 
+displayButton {position, size, text} = move (toFloat position.x, toFloat position.y) <| group [ 
+  filled buttonGreen <| toFloat size.x `rect` toFloat size.y,
+  toForm <| plainText text ]
 
 scaleElement w h el = let fw = toFloat w in let fh = toFloat h in collage w h [ 
   scale ( (fw / toFloat (widthOf el) * constants.scale) `min` (fh / toFloat (heightOf el) * constants.scale) ) <| toForm el ]
 
-display (w,h) (Game {buttons, board, state}) = layers [ 
-  container w h middle <| scaleElement w h <| collage (constants.winSize.x + constants.tileSize.x) (constants.winSize.y + constants.tileSize.y) <| [ displayBoard board ],
-  container w h middle <| collage constants.winSize.x constants.winSize.y <| [ displayState state ] ++ map displayButton buttons ]
+display (w,h) (Game {buttons, board, state}) = layers [
+  ( container w h middle <| scaleElement w h <| collage (constants.winSize.x + constants.tileSize.x) (constants.winSize.y + constants.tileSize.y) <| [ displayBoard board ] ),
+  ( container w h middle <| collage 100 100  <| [ move (0 - toFloat w / 4, 0 - toFloat h / 4) <| group <| [ displayState state ] ++ map displayButton buttons ] )
+ ]
 
 main = display <~ Window.dimensions ~ gameState
