@@ -22,6 +22,11 @@ data State = Paused | Playing
 type Board = { size : Position, units : Dict Position () }
 type Game = { buttons : [ Button ], state : State, board : Board }
 
+type Constants = { size : Position, tileSize : Position }
+constants : Constants
+constants = Constants defaultSize defaultTileSize
+defaultTileSize = (20,20)
+
 -- Update
 
 updateBoard : Board -> Board
@@ -49,10 +54,28 @@ gameState = foldp stepGame input defaultGame
 
 defaultGame = Game defaultButtons defaultState defaultBoard
 
+defaultSize = (40,40)
 defaultButtons = []
 defaultState = Paused
 defaultBoard = Board constants.size Dict.empty
 
 -- Display
-display (w,h) {buttons, board, state} 
+
+displayState state = if state == Playing then empty else asText state
+
+placeTile {x,y} = move (x*constants.tileSize.x,y*constants.tileSize.y) 
+
+circleAt {x,y} = oval constants.tileSize.x constants.tileSize.y |> filled white |> placeTile (x,y)
+
+crossAt {x,y} = rect constants.tileSize.x constants.tileSize.y |> outlined defaultLine |> placeTile (x,y)
+
+displayTile d p = if p `lookup` d then circleAt p else crossAt p
+
+displayBoard ({dict} as board) = layer <| map (displayTile dict) <| allPairs board.size.x board.size.y
+
+display (w,h) {buttons, board, state} = container w h middle <| collage constants.size.x constants.size.y [
+  displayState state,
+  displayBoard board
+  ] ++ map displayButton buttons
+
 main = display <~ Windows.dimensions ~ gameState
