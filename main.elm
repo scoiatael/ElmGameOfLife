@@ -19,8 +19,8 @@ fromTuple (x,y) = {x = x, y = y}
 
 data Input = Time { delta : Float } | Click { comp : Comp } | 
   Checkbox { isChecked : Bool, element : Element } | DropDown { name : String, element : Element }
-
-clock = inSeconds <~ fps 35
+  | Redraw { void : () }
+clock = inSeconds <~ fps 25
 
 type MutableElement a = { update : Signal a, element : Signal Element} 
 fromInput : (Signal Element, Signal a) -> MutableElement a
@@ -40,6 +40,7 @@ tileButtons = Input.customButtons (-1,-1)
 input = combine <| List.reverse [ Time . (\v -> { delta = v} )        <~ clock,  
   (Click . (\c -> { comp = c }))                                      <~ (dropRepeats <| dropIf ((==) (-1,-1)) (-2,-2) tileButtons.events),
   (dot2 Checkbox  (\b e -> { isChecked = b, element = e } ) )         <~ checkBox.update ~ checkBox.element, 
+  (Redraw . (\_ -> {void = ()}))                                      <~ Window.dimensions,
   (dot2 DropDown  (\d e -> { name = d,  element = e } )     )         <~ dropDown.update ~ dropDown.element ] 
 
 
@@ -68,7 +69,7 @@ constants = let (tx,ty) = toComp defaultTileSize in let (x,y) = toComp defaultSi
 
 data State = Paused | Playing
 type Board = { size : Position, units : Dict.Dict Comp () }
-data Game = Game { dropDown : Element, checkBox : Element, state : State, board : Board, speed : Int, timeDelta : Float, clicks : [Comp]}
+data Game = Game { dropDown : Element, checkBox : Element, state : State, board : Board, speed : Int, timeDelta : Float, clicks : [Comp], redraw:True}
 
 -- Update
 repeat : Int -> a -> (a -> a) -> a
@@ -114,8 +115,10 @@ updateBoard ({units, size} as board) = foldl (\(x,y,c) -> processCell (x,y) c) b
 updateGame : Float -> Game -> Game
 updateGame delta (Game ({state, board, speed, timeDelta} as game)) = case state of
   Paused -> Game game
-  Playing -> let dt = 1 / toFloat speed in Game {game | timeDelta <- timeDelta + delta - if timeDelta > dt then dt else 0, 
-                                                        board <- if timeDelta > dt then updateBoard board else board }
+  Playing -> let dt = 1 / toFloat speed in Game if timeDelta > dt then { game | timeDelta <- timeDelta + delta - dt, 
+                                                                               -- redraw <- True,
+                                                                                board <- updateBoard board}
+                                                                  else { game | timeDelta <- timeDelta + delta }
 
 fromMaybeWithDefault : a -> Maybe a -> a
 fromMaybeWithDefault a ma = case ma of
@@ -133,21 +136,27 @@ insideBoard (x,y) = (x /= -2) && (y /= -2)
 addClick comp (Game ({clicks} as g)) = Game {g | clicks <- comp :: take 29 clicks}
 
 handleClick comp (Game ({clicks} as g)) = (if insideBoard comp && (clicks == [] || comp /= head clicks) 
-  then click comp <| addClick comp <| Game g 
+  then -- setRedraw True <| 
+    click comp <| addClick comp <| Game g 
   else Game g ) 
 
+setRedraw : Bool -> Game -> Game
+setRedraw b (Game g) = Game { g | redraw <- b }
 
 stepGame : Input -> Game -> Game
 stepGame inp = case inp of
   Time { delta }                  -> updateGame delta 
   Click { comp }                  -> handleClick comp
-  Checkbox { isChecked, element}  -> (\(Game g) -> Game { g | checkBox <- element, state <- if isChecked then Paused else Playing} )
+  Checkbox { isChecked, element}  -> (\(Game g) -> Game { g | checkBox <- element, 
+                                                              state <- if isChecked then Paused else Playing 
+                                                              } ) -- . setRedraw True
   DropDown { name, element }      -> (\(Game g) -> Game { g | dropDown <- element, 
                                                               speed <- fromMaybeWithDefault 1 <| String.toInt name
-                                                              } )
+                                                              } ) -- . setRedraw True
+  Redraw { void }                 -> setRedraw True
 
 stepGameList : [Input] -> Game -> Game
-stepGameList ins game = foldl stepGame game ins
+stepGameList ins game = foldl (stepGame . setRedraw False) game ins
   
 gameState : Signal Game
 gameState = foldp stepGameList defaultGame input 
@@ -155,7 +164,7 @@ gameState = foldp stepGameList defaultGame input
 defaultGame : Game
 defaultGame = Game { state =  defaultState, board =  defaultBoard, 
                       checkBox = empty, dropDown = empty, speed = 1, 
-                        timeDelta = 0, clicks = []}
+                        timeDelta = 0, clicks = [], redraw = True }
 
 defaultState : State
 defaultState = Paused
@@ -224,16 +233,20 @@ bkgColour = rgb 200 200 200
 
 background w h = collage w h [ filled bkgColour <| toFloat w `rect` toFloat h ]
 
-display (w,h) (Game {board, state, dropDown, checkBox, clicks}) = let h' = h - constants.offset 
-                                                                      w' = w - 60 in layers 
-  [background w h, container w h middle <| collage w h [ displayState state ],
-    flow down <| List.reverse [
-    ( beside ( above (plainText "Clicks:") <| width 60 <| asText <| take 30 clicks) <| 
-        container w' h' middle <| scaleElement w' h' <| collage constants.winSize.x constants.winSize.y <| 
-      [ displayBoard board , displayButtons] ),
-    ( container w (constants.offset `div` 2) middle <| flow left <| intersperse (spacer 60 10) 
-      [ plainText "Speed: ", width 60 dropDown, plainText "Pause: " , height 20 checkBox ] ),
-    spacer 10 (constants.offset `div` 2)
-   ]]
+display (w,h) (Game {board, state, dropDown, checkBox, clicks, redraw}) = -- if not redraw then empty else 
+  let h' = h - constants.offset 
+  w' = w - 60 in layers 
+    [background w h, container w h middle <| collage w h [ displayState state ],
+      flow down <| List.reverse [
+      ( beside ( above (plainText "Clicks:") <| width 60 <| asText <| take 30 clicks) <| 
+          container w' h' middle <| scaleElement w' h' <| collage constants.winSize.x constants.winSize.y <| 
+        [ displayBoard board , if repeat then 
+                                          displayButtons
+                                         else empty
+                                          ] ),
+      ( container w (constants.offset `div` 2) middle <| flow left <| intersperse (spacer 60 10) 
+        [ plainText "Speed: ", width 60 dropDown, plainText "Pause: " , height 20 checkBox ] ),
+      spacer 10 (constants.offset `div` 2)
+     ]]
 
 main = display <~ Window.dimensions ~ gameState 
