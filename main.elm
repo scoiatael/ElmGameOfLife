@@ -183,7 +183,8 @@ unScale : Comp -> Comp -> Comp
 unScale (w,h) (cx, cy) = let cy' = cy + constants.offset
                              scale = boxSize (toFloat w) (toFloat h) (toFloat constants.winSize.x) (toFloat constants.winSize.y)  in
   times (\x -> x - constants.size.x `div` 2, \y -> constants.size.y -  y) <|  
-    (floor <| toFloat cx / scale / toFloat constants.tileSize.x, floor <| toFloat cy' / scale / toFloat constants.tileSize.y)
+    (floor <| toFloat (cx-3*constants.tileSize.x + 2) / scale / toFloat constants.tileSize.x, 
+      floor <| toFloat (cy'-4*constants.tileSize.y) / scale / toFloat constants.tileSize.y)
 
 boxSize fw fh tw th =  (fw / tw * constants.scale) `min` (fh / th * constants.scale) 
 
