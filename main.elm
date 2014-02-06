@@ -18,8 +18,7 @@ fromTuple : (Int,Int) -> Position
 fromTuple (x,y) = {x = x, y = y}
 
 data Input = Time { delta : Float } | Click { comp : Comp } | 
-  Checkbox { isChecked : Bool, element : Element } | DropDown { name : String, element : Element } | 
-  Redraw { void : () }
+  Checkbox { isChecked : Bool, element : Element } | DropDown { name : String, element : Element }
 
 clock = inSeconds <~ fps 35
 
@@ -39,9 +38,8 @@ dot2 f a x y = f (a x y)
 tileButtons = Input.customButtons (-1,-1)
 
 input = combine <| List.reverse [ Time . (\v -> { delta = v} )        <~ clock,  
-  (Click . (\c -> { comp = c }))                                      <~ dropIf ((==) (-1,-1)) (-2,-2) tileButtons.events,
+  (Click . (\c -> { comp = c }))                                      <~ (dropRepeats <| dropIf ((==) (-1,-1)) (-2,-2) tileButtons.events),
   (dot2 Checkbox  (\b e -> { isChecked = b, element = e } ) )         <~ checkBox.update ~ checkBox.element, 
-  (Redraw . (\v -> { void = ()}))                                     <~ Window.dimensions,
   (dot2 DropDown  (\d e -> { name = d,  element = e } )     )         <~ dropDown.update ~ dropDown.element ] 
 
 
@@ -70,7 +68,7 @@ constants = let (tx,ty) = toComp defaultTileSize in let (x,y) = toComp defaultSi
 
 data State = Paused | Playing
 type Board = { size : Position, units : Dict.Dict Comp () }
-data Game = Game { dropDown : Element, checkBox : Element, state : State, board : Board, speed : Int, timeDelta : Float, redrawButtons : Bool }
+data Game = Game { dropDown : Element, checkBox : Element, state : State, board : Board, speed : Int, timeDelta : Float, clicks : [Comp]}
 
 -- Update
 repeat : Int -> a -> (a -> a) -> a
@@ -82,10 +80,10 @@ neighbours : Int -> Int -> [Comp]
 neighbours x y = [(x-1,y), (x+1,y), (x,y-1), (x,y+1), (x-1,y-1), (x+1,y+1), (x+1,y-1), (x-1,y+1)]
 
 aliveCell : Comp -> Board -> Bool
-aliveCell c {units} = c `Dict.lookup` units  == Nothing
+aliveCell c {units} = c `Dict.lookup` units  /= Nothing
 
 countNeighbours : Board -> Int -> Int -> Int
-countNeighbours b x y = foldl (+) 0 <| map (\c -> if aliveCell c b then 0 else 1) <| neighbours x y
+countNeighbours b x y = foldl (+) 0 <| map (\c -> if aliveCell c b then 1 else 0) <| neighbours x y
 
 type CellChange = Comp -> Board -> Board
 
@@ -129,17 +127,24 @@ click cords (Game ({board} as g)) = Game {g | board <- if aliveCell cords board 
 
 inside (min, max) i = i >= min && i < max
 
-insideBoard (x,y) = inside (0, constants.size.x) x && inside (0, constants.size.y) y 
+--insideBoard (x,y) = inside (0, constants.size.x) x && inside (0, constants.size.y) y 
+insideBoard (x,y) = (x /= -2) && (y /= -2)
+
+addClick comp (Game ({clicks} as g)) = Game {g | clicks <- comp :: take 29 clicks}
+
+handleClick comp (Game ({clicks} as g)) = (if insideBoard comp && (clicks == [] || comp /= head clicks) 
+  then click comp <| addClick comp <| Game g 
+  else Game g ) 
+
 
 stepGame : Input -> Game -> Game
 stepGame inp = case inp of
   Time { delta }                  -> updateGame delta 
-  Click { comp }                  -> if insideBoard comp then click comp else id
+  Click { comp }                  -> handleClick comp
   Checkbox { isChecked, element}  -> (\(Game g) -> Game { g | checkBox <- element, state <- if isChecked then Paused else Playing} )
   DropDown { name, element }      -> (\(Game g) -> Game { g | dropDown <- element, 
                                                               speed <- fromMaybeWithDefault 1 <| String.toInt name
                                                               } )
-  Redraw { void }                 -> (\(Game g) -> Game {g | redrawButtons <- True})
 
 stepGameList : [Input] -> Game -> Game
 stepGameList ins game = foldl stepGame game ins
@@ -150,7 +155,7 @@ gameState = foldp stepGameList defaultGame input
 defaultGame : Game
 defaultGame = Game { state =  defaultState, board =  defaultBoard, 
                       checkBox = empty, dropDown = empty, speed = 1, 
-                        timeDelta = 0, redrawButtons = True }
+                        timeDelta = 0, clicks = []}
 
 defaultState : State
 defaultState = Paused
@@ -219,11 +224,13 @@ bkgColour = rgb 200 200 200
 
 background w h = collage w h [ filled bkgColour <| toFloat w `rect` toFloat h ]
 
-display (w,h) (Game {board, state, dropDown, checkBox, redrawButtons}) = let h' = h - constants.offset in layers 
+display (w,h) (Game {board, state, dropDown, checkBox, clicks}) = let h' = h - constants.offset 
+                                                                      w' = w - 60 in layers 
   [background w h, container w h middle <| collage w h [ displayState state ],
     flow down <| List.reverse [
-    ( container w h' middle <| scaleElement w h' <| collage constants.winSize.x constants.winSize.y <| 
-      [ displayBoard board , if redrawButtons then displayButtons else toForm empty ] ),
+    ( beside ( above (plainText "Clicks:") <| width 60 <| asText <| take 30 clicks) <| 
+        container w' h' middle <| scaleElement w' h' <| collage constants.winSize.x constants.winSize.y <| 
+      [ displayBoard board , displayButtons] ),
     ( container w (constants.offset `div` 2) middle <| flow left <| intersperse (spacer 60 10) 
       [ plainText "Speed: ", width 60 dropDown, plainText "Pause: " , height 20 checkBox ] ),
     spacer 10 (constants.offset `div` 2)
