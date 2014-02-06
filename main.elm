@@ -17,8 +17,9 @@ toComp {x,y} = (x,y)
 fromTuple : (Int,Int) -> Position
 fromTuple (x,y) = {x = x, y = y}
 
-data Input = Time { delta : Float } | Click { position : Position, wDimensions : Comp } | 
-  Checkbox { isChecked : Bool, element : Element } | DropDown { name : String, element : Element }
+data Input = Time { delta : Float } | Click { comp : Comp } | 
+  Checkbox { isChecked : Bool, element : Element } | DropDown { name : String, element : Element } | 
+  Redraw { void : () }
 
 clock = inSeconds <~ fps 35
 
@@ -35,26 +36,41 @@ dropDown = fromInput <| Input.stringDropDown ["1","2","3","4","8","16","32", "64
 dot2 : (a -> b) -> (c -> d -> a) -> c -> d -> b
 dot2 f a x y = f (a x y)
 
-input = combine <| List.reverse [ Time . (\v -> { delta = v} )        <~ sampleOn (clock) ( clock ),  
-  (dot2 Click (\p d -> { position = fromTuple p, wDimensions = d }))  <~ sampleOn Mouse.clicks Mouse.position ~ Window.dimensions,
+tileButtons = Input.customButtons (-1,-1)
+
+input = combine <| List.reverse [ Time . (\v -> { delta = v} )        <~ clock,  
+  (Click . (\c -> { comp = c }))                                      <~ dropIf ((==) (-1,-1)) (-2,-2) tileButtons.events,
   (dot2 Checkbox  (\b e -> { isChecked = b, element = e } ) )         <~ checkBox.update ~ checkBox.element, 
+  (Redraw . (\v -> { void = ()}))                                     <~ Window.dimensions,
   (dot2 DropDown  (\d e -> { name = d,  element = e } )     )         <~ dropDown.update ~ dropDown.element ] 
 
 
 -- Model
 
-type Constants = { size : Position, tileSize : Position, winSize : Position, scale : Float, offset : Int}
-constants : Constants
-constants = let (tx,ty) = toComp defaultTileSize in let (x,y) = toComp defaultSize in 
-  Constants defaultSize defaultTileSize ( fromTuple ( tx * (x+1), ty * (y+1) ) ) defaultScale defaultOffset
 defaultScale = 0.95
 defaultTileSize = {x = 20, y = 20}
 defaultSize = {x = 40, y = 40}
 defaultOffset = 40
 
+makeTile : Color -> Element
+makeTile color = collage defaultTileSize.x defaultTileSize.y [ toFloat defaultTileSize.x `oval` toFloat defaultTileSize.y |> filled color ]
+
+alphaRed = rgba 200 100 100 128
+noColor = rgba 0 0 0 0 
+clearRed = rgba 200 100 100 255
+
+defaultUp =  makeTile noColor
+defaultDown =  makeTile clearRed
+defaultHover =  makeTile alphaRed
+
+type Constants = { size : Position, tileSize : Position, winSize : Position, scale : Float, offset : Int, tileButtonUp : Element, tileButtonDown : Element, tileButtonHover : Element }
+constants : Constants
+constants = let (tx,ty) = toComp defaultTileSize in let (x,y) = toComp defaultSize in 
+  Constants defaultSize defaultTileSize ( fromTuple ( tx * (x+1), ty * (y+1) ) ) defaultScale defaultOffset defaultUp defaultDown defaultHover
+
 data State = Paused | Playing
 type Board = { size : Position, units : Dict.Dict Comp () }
-data Game = Game { dropDown : Element, checkBox : Element, state : State, board : Board, speed : Int, timeDelta : Float }
+data Game = Game { dropDown : Element, checkBox : Element, state : State, board : Board, speed : Int, timeDelta : Float, redrawButtons : Bool }
 
 -- Update
 repeat : Int -> a -> (a -> a) -> a
@@ -108,17 +124,22 @@ fromMaybeWithDefault a ma = case ma of
   Nothing -> a
   Just i  -> i
  
-click : Comp -> Comp -> Game -> Game
-click pos dim (Game ({board} as g)) = Game {g | board <- reviveCell (unScale dim pos) board}
- 
+click : Comp -> Game -> Game
+click cords (Game ({board} as g)) = Game {g | board <- if aliveCell cords board then killCell cords board else reviveCell cords board} 
+
+inside (min, max) i = i >= min && i < max
+
+insideBoard (x,y) = inside (0, constants.size.x) x && inside (0, constants.size.y) y 
+
 stepGame : Input -> Game -> Game
 stepGame inp = case inp of
   Time { delta }                  -> updateGame delta 
-  Click { position, wDimensions } -> toComp position `click` wDimensions
+  Click { comp }                  -> if insideBoard comp then click comp else id
   Checkbox { isChecked, element}  -> (\(Game g) -> Game { g | checkBox <- element, state <- if isChecked then Paused else Playing} )
   DropDown { name, element }      -> (\(Game g) -> Game { g | dropDown <- element, 
                                                               speed <- fromMaybeWithDefault 1 <| String.toInt name
                                                               } )
+  Redraw { void }                 -> (\(Game g) -> Game {g | redrawButtons <- True})
 
 stepGameList : [Input] -> Game -> Game
 stepGameList ins game = foldl stepGame game ins
@@ -127,7 +148,9 @@ gameState : Signal Game
 gameState = foldp stepGameList defaultGame input 
 
 defaultGame : Game
-defaultGame = Game { state =  defaultState, board =  defaultBoard, checkBox = empty, dropDown = empty, speed = 1, timeDelta = 0 }
+defaultGame = Game { state =  defaultState, board =  defaultBoard, 
+                      checkBox = empty, dropDown = empty, speed = 1, 
+                        timeDelta = 0, redrawButtons = True }
 
 defaultState : State
 defaultState = Paused
@@ -140,14 +163,14 @@ fromStr s = concatMap (\(a,l) -> map (\x -> (x,a)) <| String.indexes "1" l ) <| 
 
 defaultBoard : Board
 defaultBoard = { size = constants.size, units = foldl (appl2 Dict.insert) Dict.empty <|
-  map (\(a,b) -> (a + constants.size.x `div` 3 - 7, b + constants.size.y `div` 3 + 5)) <| 
-  fromStr "0000000
-           0111010
-           0100000
-           0000110
-           0011010
-           0101010
-           0000000"}
+  map (\(a,b) -> (a {- + constants.size.x `div` 3 - 7-}, b {- + constants.size.y `div` 3 + 5-})) <| 
+    fromStr "0000000
+             0111010
+             0100000
+             0000110
+             0011010
+             0101010
+             0000000" }
 
 -- Display
 
@@ -158,19 +181,23 @@ placeTile : Comp -> Form -> Form
 placeTile (x,y) = move (toFloat <| (x+1) * constants.tileSize.x - constants.winSize.x `div` 2, toFloat <| (y+1) * constants.tileSize.y - constants.winSize.y `div` 2) 
 
 circleAt : Comp -> Form
-circleAt ( (x,y) as coords) = toFloat constants.tileSize.x `oval` toFloat constants.tileSize.y |> filled white |> placeTile coords
-
+circleAt ( (x,y) as coords) = toFloat constants.tileSize.x `oval` toFloat constants.tileSize.y |> filled white 
 crossAt : Comp -> Form
-crossAt ( (x,y) as coords) = toFloat constants.tileSize.x `rect` toFloat constants.tileSize.y |> outlined defaultLine |> placeTile coords
+crossAt ( (x,y) as coords) = toFloat constants.tileSize.x `rect` toFloat constants.tileSize.y |> outlined defaultLine
 
 displayTile : Dict.Dict Comp () -> Comp -> Form
-displayTile d p = if p `Dict.lookup` d /= Nothing then circleAt p else crossAt p
+displayTile d p = (if p `Dict.lookup` d /= Nothing then circleAt p else crossAt p) |> placeTile p
+
+displayButton p = placeTile p <| toForm <| tileButtons.customButton p constants.tileButtonUp constants.tileButtonHover constants.tileButtonDown
 
 allPairs : Position -> [Comp]
 allPairs {x,y} = List.concat <| map (\a -> (map (\b -> (a,b)) [0..x-1] )) [0..y-1]
 
 displayBoard : Board -> Form
-displayBoard ({units} as board) = group <| map (displayTile units) <| allPairs <| fromTuple (board.size.x,board.size.y)
+displayBoard ({units} as board) = group <| map (displayTile units) <| allPairs <| fromTuple (constants.size.x,constants.size.y)
+
+displayButtons : Form
+displayButtons = group <| map displayButton <| allPairs <| fromTuple (constants.size.x,constants.size.y)
 
 scaleElement w h el = let fw = toFloat w in let fh = toFloat h in collage w h [ 
   scale (boxSize fw fh (toFloat (widthOf el)) (toFloat (heightOf el))) <| toForm el ]
@@ -192,12 +219,14 @@ bkgColour = rgb 200 200 200
 
 background w h = collage w h [ filled bkgColour <| toFloat w `rect` toFloat h ]
 
-display (w,h) (Game {board, state, dropDown, checkBox}) = let h' = h - constants.offset in layers [background w h, flow down <| List.reverse [
-  ( container w h' middle <| scaleElement w h' <| collage constants.winSize.x constants.winSize.y <| 
-    [ displayBoard board , displayState state ] ),
-  ( container w (constants.offset `div` 2) middle <| flow left <| intersperse (spacer 60 10) 
-    [ plainText "Speed: ", width 60 dropDown, plainText "Pause: " , height 20 checkBox ] ),
-  spacer 10 (constants.offset `div` 2)
- ] ]
+display (w,h) (Game {board, state, dropDown, checkBox, redrawButtons}) = let h' = h - constants.offset in layers 
+  [background w h, container w h middle <| collage w h [ displayState state ],
+    flow down <| List.reverse [
+    ( container w h' middle <| scaleElement w h' <| collage constants.winSize.x constants.winSize.y <| 
+      [ displayBoard board , if redrawButtons then displayButtons else toForm empty ] ),
+    ( container w (constants.offset `div` 2) middle <| flow left <| intersperse (spacer 60 10) 
+      [ plainText "Speed: ", width 60 dropDown, plainText "Pause: " , height 20 checkBox ] ),
+    spacer 10 (constants.offset `div` 2)
+   ]]
 
 main = display <~ Window.dimensions ~ gameState 
