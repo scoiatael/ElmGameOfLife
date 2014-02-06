@@ -69,7 +69,9 @@ constants = let (tx,ty) = toComp defaultTileSize in let (x,y) = toComp defaultSi
 
 data State = Paused | Playing
 type Board = { size : Position, units : Dict.Dict Comp () }
-data Game = Game { dropDown : Element, checkBox : Element, state : State, board : Board, speed : Int, timeDelta : Float, clicks : [Comp], redraw:True}
+data Game = Game { dropDown : Element, checkBox : Element, 
+  state : State, board : Board, speed : Int, 
+  timeDelta : Float, clicks : [Comp], redraw:Bool}
 
 -- Update
 repeat : Int -> a -> (a -> a) -> a
@@ -115,7 +117,7 @@ updateBoard ({units, size} as board) = foldl (\(x,y,c) -> processCell (x,y) c) b
 updateGame : Float -> Game -> Game
 updateGame delta (Game ({state, board, speed, timeDelta} as game)) = case state of
   Paused -> Game game
-  Playing -> let dt = 1 / toFloat speed in Game if timeDelta > dt then { game | timeDelta <- timeDelta + delta - dt, 
+  Playing -> let dt = 1 / toFloat speed in Game <| if timeDelta > dt then { game | timeDelta <- timeDelta + delta - dt, 
                                                                                -- redraw <- True,
                                                                                 board <- updateBoard board}
                                                                   else { game | timeDelta <- timeDelta + delta }
@@ -144,7 +146,7 @@ setRedraw : Bool -> Game -> Game
 setRedraw b (Game g) = Game { g | redraw <- b }
 
 stepGame : Input -> Game -> Game
-stepGame inp = case inp of
+stepGame inp g = setRedraw False g |>  case inp of
   Time { delta }                  -> updateGame delta 
   Click { comp }                  -> handleClick comp
   Checkbox { isChecked, element}  -> (\(Game g) -> Game { g | checkBox <- element, 
@@ -156,7 +158,7 @@ stepGame inp = case inp of
   Redraw { void }                 -> setRedraw True
 
 stepGameList : [Input] -> Game -> Game
-stepGameList ins game = foldl (stepGame . setRedraw False) game ins
+stepGameList ins game = foldl stepGame game ins
   
 gameState : Signal Game
 gameState = foldp stepGameList defaultGame input 
@@ -235,14 +237,14 @@ background w h = collage w h [ filled bkgColour <| toFloat w `rect` toFloat h ]
 
 display (w,h) (Game {board, state, dropDown, checkBox, clicks, redraw}) = -- if not redraw then empty else 
   let h' = h - constants.offset 
-  w' = w - 60 in layers 
+      w' = w - 60 in layers 
     [background w h, container w h middle <| collage w h [ displayState state ],
       flow down <| List.reverse [
       ( beside ( above (plainText "Clicks:") <| width 60 <| asText <| take 30 clicks) <| 
           container w' h' middle <| scaleElement w' h' <| collage constants.winSize.x constants.winSize.y <| 
-        [ displayBoard board , if repeat then 
+        [ displayBoard board , if redraw then 
                                           displayButtons
-                                         else empty
+                                         else toForm empty
                                           ] ),
       ( container w (constants.offset `div` 2) middle <| flow left <| intersperse (spacer 60 10) 
         [ plainText "Speed: ", width 60 dropDown, plainText "Pause: " , height 20 checkBox ] ),
