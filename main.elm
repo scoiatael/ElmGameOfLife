@@ -191,9 +191,11 @@ crossAt : Comp -> Form
 crossAt ( (x,y) as coords) = toFloat constants.tileSize.x `rect` toFloat constants.tileSize.y |> outlined defaultLine
 
 displayTile : Dict.Dict Comp () -> Comp -> Form
-displayTile d p = (if p `Dict.lookup` d /= Nothing then circleAt p else crossAt p) |> placeTile p
-
-displayButton p = placeTile p <| toForm <| tileButtons.customButton p constants.tileButtonUp constants.tileButtonHover constants.tileButtonDown
+displayTile d p =  placeTile p <| toForm <| tileButtons.customButton p 
+  (collage constants.tileSize.x constants.tileSize.y <|
+    [ if p `Dict.lookup` d /= Nothing then circleAt p else crossAt p ] ) 
+  constants.tileButtonHover 
+  constants.tileButtonDown
 
 allPairs : Position -> [Comp]
 allPairs {x,y} = List.concat <| map (\a -> (map (\b -> (a,b)) [0..x-1] )) [0..y-1]
@@ -201,22 +203,11 @@ allPairs {x,y} = List.concat <| map (\a -> (map (\b -> (a,b)) [0..x-1] )) [0..y-
 displayBoard : Board -> Form
 displayBoard ({units} as board) = group <| map (displayTile units) <| allPairs <| fromTuple (constants.size.x,constants.size.y)
 
-displayButtons : Form
-displayButtons = group <| map displayButton <| allPairs <| fromTuple (constants.size.x,constants.size.y)
-
 scaleElement w h el = let fw = toFloat w in let fh = toFloat h in collage w h [ 
   scale (boxSize fw fh (toFloat (widthOf el)) (toFloat (heightOf el))) <| toForm el ]
 
 times : ((a->b), (c->d)) -> (a,c) -> (b,d)
 times (f,g) (a,b) = (f a, g b)
-
-unScale : Comp -> Comp -> Comp
--- Window dimensions -> Clicked position -> Board coords
-unScale (w,h) (cx, cy) = let cy' = cy + constants.offset
-                             scale = boxSize (toFloat w) (toFloat h) (toFloat constants.winSize.x) (toFloat constants.winSize.y)  in
-  times (\x -> x - constants.size.x `div` 2, \y -> constants.size.y -  y) <|  
-    (floor <| toFloat (cx-3*constants.tileSize.x + 2) / scale / toFloat constants.tileSize.x, 
-      floor <| toFloat (cy'-4*constants.tileSize.y) / scale / toFloat constants.tileSize.y)
 
 boxSize fw fh tw th =  (fw / tw * constants.scale) `min` (fh / th * constants.scale) 
 
@@ -230,7 +221,7 @@ display (w,h) (Game {board, state, dropDown, checkBox, clicks}) = let h' = h - c
     flow down <| List.reverse [
     ( beside ( above (plainText "Clicks:") <| width 60 <| asText <| take 30 clicks) <| 
         container w' h' middle <| scaleElement w' h' <| collage constants.winSize.x constants.winSize.y <| 
-      [ displayBoard board , displayButtons] ),
+      [ displayBoard board ] ),
     ( container w (constants.offset `div` 2) middle <| flow left <| intersperse (spacer 60 10) 
       [ plainText "Speed: ", width 60 dropDown, plainText "Pause: " , height 20 checkBox ] ),
     spacer 10 (constants.offset `div` 2)
