@@ -4,6 +4,7 @@ import Mouse
 import Dict
 import List
 import Graphics.Input as Input
+import Set
 
 -- Input
 
@@ -107,15 +108,21 @@ processCell coords neigh board = case neigh of
   3 -> reviveCell coords board
   i -> killCell coords board
 
+removeIds : [comparable] -> [comparable]
+removeIds = Set.toList . Set.fromList
+
 updateBoard : Board -> Board
 updateBoard ({units, size} as board) = foldl (\(x,y,c) -> processCell (x,y) c) board <| 
-  map (\(x,y) -> (x,y, countNeighbours board x y)) <| allPairs size
+  map (\(x,y) -> (x,y, countNeighbours board x y)) <| 
+    removeIds <| concatMap (uncurry neighbours) <| Dict.keys units
 
 updateGame : Float -> Game -> Game
 updateGame delta (Game ({state, board, speed, timeDelta} as game)) = case state of
   Paused -> Game game
-  Playing -> let dt = 1 / toFloat speed in Game {game | timeDelta <- timeDelta + delta - if timeDelta > dt then dt else 0, 
-                                                        board <- if timeDelta > dt then updateBoard board else board }
+  Playing -> let dt = 1 / toFloat speed in Game <| if timeDelta > dt 
+    then {game | timeDelta <- delta, 
+                 board <- updateBoard board }
+    else {game | timeDelta <- timeDelta + delta }
 
 fromMaybeWithDefault : a -> Maybe a -> a
 fromMaybeWithDefault a ma = case ma of
