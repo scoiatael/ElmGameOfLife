@@ -21,7 +21,7 @@ fromTuple (x,y) = {x = x, y = y}
 data Input = Time { delta : Float } | Click { comp : Comp } | 
   Checkbox { isChecked : Bool, element : Element } | DropDown { name : String, element : Element }
 
-clock = inSeconds <~ fps 35
+clock = inSeconds <~ fps 15
 
 type MutableElement a = { update : Signal a, element : Signal Element} 
 fromInput : (Signal Element, Signal a) -> MutableElement a
@@ -38,8 +38,11 @@ dot2 f a x y = f (a x y)
 
 tileButtons = Input.customButtons (-1,-1)
 
-input = combine <| List.reverse [ Time . (\v -> { delta = v} )        <~ clock,  
-  (Click . (\c -> { comp = c }))                                      <~ (dropRepeats <| dropIf ((==) (-1,-1)) (-2,-2) tileButtons.events),
+clockSample = sampleOn <| merges [ (always ()) <~ clock, (always ()) <~ Mouse.clicks ]
+
+input = clockSample <| combine <| List.reverse [ 
+  Time . (\v -> { delta = v} )                                        <~ clock,  
+  (Click . (\c -> { comp = c }))                                      <~ tileButtons.events,
   (dot2 Checkbox  (\b e -> { isChecked = b, element = e } ) )         <~ checkBox.update ~ checkBox.element, 
   (dot2 DropDown  (\d e -> { name = d,  element = e } )     )         <~ dropDown.update ~ dropDown.element ] 
 
@@ -54,9 +57,9 @@ defaultOffset = 40
 makeTile : Color -> Element
 makeTile color = collage defaultTileSize.x defaultTileSize.y [ toFloat defaultTileSize.x `oval` toFloat defaultTileSize.y |> filled color ]
 
-alphaRed = rgba 200 100 100 128
+alphaRed = rgba 200 100 100 0.5
 noColor = rgba 0 0 0 0 
-clearRed = rgba 200 100 100 255
+clearRed = rgba 200 100 100 1
 
 defaultUp =  makeTile noColor
 defaultDown =  makeTile clearRed
@@ -65,7 +68,7 @@ defaultHover =  makeTile alphaRed
 type Constants = { size : Position, tileSize : Position, winSize : Position, scale : Float, offset : Int, tileButtonUp : Element, tileButtonDown : Element, tileButtonHover : Element }
 constants : Constants
 constants = let (tx,ty) = toComp defaultTileSize in let (x,y) = toComp defaultSize in 
-  Constants defaultSize defaultTileSize ( fromTuple ( tx * (x+1), ty * (y+1) ) ) defaultScale defaultOffset defaultUp defaultDown defaultHover
+  Constants defaultSize defaultTileSize ( fromTuple ( tx * (x+1), ty * (y+1) ) ) defaultScale defaultOffset empty empty empty
 
 data State = Paused | Playing
 type Board = { size : Position, units : Dict.Dict Comp () }
@@ -114,7 +117,7 @@ removeIds = Set.toList . Set.fromList
 updateBoard : Board -> Board
 updateBoard ({units, size} as board) = foldl (\(x,y,c) -> processCell (x,y) c) board <| 
   map (\(x,y) -> (x,y, countNeighbours board x y)) <| 
-    removeIds <| concatMap (uncurry neighbours) <| Dict.keys units
+    removeIds <| concatMap (\(x,y) -> (x,y) :: neighbours x y) <| Dict.keys units
 
 updateGame : Float -> Game -> Game
 updateGame delta (Game ({state, board, speed, timeDelta} as game)) = case state of
@@ -198,11 +201,13 @@ crossAt : Comp -> Form
 crossAt ( (x,y) as coords) = toFloat constants.tileSize.x `rect` toFloat constants.tileSize.y |> outlined defaultLine
 
 displayTile : Dict.Dict Comp () -> Comp -> Form
-displayTile d p =  placeTile p <| toForm <| tileButtons.customButton p 
-  (collage constants.tileSize.x constants.tileSize.y <|
+displayTile d p =  placeTile p <| toForm <|  
+  let tile = (collage constants.tileSize.x constants.tileSize.y <|
     [ if p `Dict.lookup` d /= Nothing then circleAt p else crossAt p ] ) 
-  constants.tileButtonHover 
-  constants.tileButtonDown
+  in tileButtons.customButton p
+    tile
+    tile
+    tile
 
 allPairs : Position -> [Comp]
 allPairs {x,y} = List.concat <| map (\a -> (map (\b -> (a,b)) [0..x-1] )) [0..y-1]
