@@ -20,7 +20,7 @@ fromTuple (x,y) = {x = x, y = y}
 data Input = Time { delta : Float } | Click { comp : Comp } | 
   Checkbox { isChecked : Bool, element : Element } | DropDown { name : String, element : Element }
 
-clock = inSeconds <~ fps 35
+clock = inSeconds <~ fps 25
 
 type MutableElement a = { update : Signal a, element : Signal Element} 
 fromInput : (Signal Element, Signal a) -> MutableElement a
@@ -38,7 +38,7 @@ dot2 f a x y = f (a x y)
 tileButtons = Input.customButtons (-1,-1)
 
 input = combine <| List.reverse [ Time . (\v -> { delta = v} )        <~ clock,  
-  (Click . (\c -> { comp = c }))                                      <~ (dropRepeats <| dropIf ((==) (-1,-1)) (-2,-2) tileButtons.events),
+  (Click . (\c -> { comp = c }))                                      <~ (tileButtons.events),
   (dot2 Checkbox  (\b e -> { isChecked = b, element = e } ) )         <~ checkBox.update ~ checkBox.element, 
   (dot2 DropDown  (\d e -> { name = d,  element = e } )     )         <~ dropDown.update ~ dropDown.element ] 
 
@@ -47,7 +47,7 @@ input = combine <| List.reverse [ Time . (\v -> { delta = v} )        <~ clock,
 
 defaultScale = 0.95
 defaultTileSize = {x = 20, y = 20}
-defaultSize = {x = 40, y = 40}
+defaultSize = {x = 20, y = 20}
 defaultOffset = 40
 
 makeTile : Color -> Element
@@ -114,8 +114,12 @@ updateBoard ({units, size} as board) = foldl (\(x,y,c) -> processCell (x,y) c) b
 updateGame : Float -> Game -> Game
 updateGame delta (Game ({state, board, speed, timeDelta} as game)) = case state of
   Paused -> Game game
-  Playing -> let dt = 1 / toFloat speed in Game {game | timeDelta <- timeDelta + delta - if timeDelta > dt then dt else 0, 
-                                                        board <- if timeDelta > dt then updateBoard board else board }
+  Playing -> let dt = 1 / toFloat speed in Game <| if timeDelta > dt 
+                                                then 
+                                                  {game | timeDelta <- 0, 
+                                                        board <- updateBoard board}
+                                                else 
+                                                  {game | timeDelta <- timeDelta + delta }
 
 fromMaybeWithDefault : a -> Maybe a -> a
 fromMaybeWithDefault a ma = case ma of
@@ -128,7 +132,7 @@ click cords (Game ({board} as g)) = Game {g | board <- if aliveCell cords board 
 inside (min, max) i = i >= min && i < max
 
 --insideBoard (x,y) = inside (0, constants.size.x) x && inside (0, constants.size.y) y 
-insideBoard (x,y) = (x /= -2) && (y /= -2)
+insideBoard (x,y) = (x /= -1) && (y /= -1)
 
 addClick comp (Game ({clicks} as g)) = Game {g | clicks <- comp :: take 29 clicks}
 
@@ -142,8 +146,10 @@ stepGame inp = case inp of
   Time { delta }                  -> updateGame delta 
   Click { comp }                  -> handleClick comp
   Checkbox { isChecked, element}  -> (\(Game g) -> Game { g | checkBox <- element, state <- if isChecked then Paused else Playing} )
-  DropDown { name, element }      -> (\(Game g) -> Game { g | dropDown <- element, 
-                                                              speed <- fromMaybeWithDefault 1 <| String.toInt name
+  DropDown { name, element }      -> (\(Game g) -> Game <| let speed' = fromMaybeWithDefault 1 <| String.toInt name in
+                                                         { g | dropDown <- element, 
+--                                                              timeDelta <- if g.speed /= speed' then 0 else g.timeDelta,
+                                                              speed <- speed'
                                                               } )
 
 stepGameList : [Input] -> Game -> Game
