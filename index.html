@@ -1,0 +1,870 @@
+<!DOCTYPE HTML>
+<html><head><meta charset="UTF-8"><title>main</title><script type="text/javascript" src="elm-runtime.js"></script><script type="text/javascript">Elm.Main = Elm.Main || {};
+Elm.Main.make = function (_elm) {
+   _elm.Main = _elm.Main || {};
+   if (_elm.Main.values)
+   return _elm.Main.values;
+   var _N = Elm.Native,
+   _U = _N.Utils.make(_elm),
+   _L = _N.List.make(_elm),
+   _E = _N.Error.make(_elm),
+   _J = _N.JavaScript.make(_elm),
+   $moduleName = "Main";
+   var Basics = Elm.Basics.make(_elm);
+   var Color = Elm.Color.make(_elm);
+   var Dict = Elm.Dict.make(_elm);
+   var Graphics = Graphics || {};
+   Graphics.Collage = Elm.Graphics.Collage.make(_elm);
+   var Graphics = Graphics || {};
+   Graphics.Element = Elm.Graphics.Element.make(_elm);
+   var Graphics = Graphics || {};
+   Graphics.Input = Elm.Graphics.Input.make(_elm);
+   var List = Elm.List.make(_elm);
+   var Maybe = Elm.Maybe.make(_elm);
+   var Mouse = Elm.Mouse.make(_elm);
+   var Native = Native || {};
+   Native.Ports = Elm.Native.Ports.make(_elm);
+   var Prelude = Elm.Prelude.make(_elm);
+   var Signal = Elm.Signal.make(_elm);
+   var String = Elm.String.make(_elm);
+   var Text = Elm.Text.make(_elm);
+   var Time = Elm.Time.make(_elm);
+   var Window = Elm.Window.make(_elm);
+   var _op = {};
+   var bkgColour = A3(Color.rgb,
+   200,
+   200,
+   200);
+   var background = F2(function (w,
+   h) {
+      return A3(Graphics.Collage.collage,
+      w,
+      h,
+      _J.toList([Graphics.Collage.filled(bkgColour)(A2(Graphics.Collage.rect,
+      Basics.toFloat(w),
+      Basics.toFloat(h)))]));
+   });
+   var times = F2(function (_v0,
+   _v1) {
+      return function () {
+         switch (_v1.ctor)
+         {case "_Tuple2":
+            return function () {
+                 switch (_v0.ctor)
+                 {case "_Tuple2":
+                    return {ctor: "_Tuple2"
+                           ,_0: _v0._0(_v1._0)
+                           ,_1: _v0._1(_v1._1)};}
+                 _E.Case($moduleName,
+                 "on line 217, column 22 to 30");
+              }();}
+         _E.Case($moduleName,
+         "on line 217, column 22 to 30");
+      }();
+   });
+   var allPairs = function (_v8) {
+      return function () {
+         return List.concat(A2(List.map,
+         function (a) {
+            return A2(List.map,
+            function (b) {
+               return {ctor: "_Tuple2"
+                      ,_0: a
+                      ,_1: b};
+            },
+            _L.range(0,_v8.x - 1));
+         },
+         _L.range(0,_v8.y - 1)));
+      }();
+   };
+   var appl2 = F2(function (f,a) {
+      return A2(f,
+      a,
+      {ctor: "_Tuple0"});
+   });
+   var insideBoard = function (_v10) {
+      return function () {
+         switch (_v10.ctor)
+         {case "_Tuple2":
+            return !_U.eq(_v10._0,
+              -1) && !_U.eq(_v10._1,-1);}
+         _E.Case($moduleName,
+         "on line 135, column 22 to 42");
+      }();
+   };
+   var inside = F2(function (_v14,
+   i) {
+      return function () {
+         switch (_v14.ctor)
+         {case "_Tuple2":
+            return _U.cmp(i,
+              _v14._0) > -1 && _U.cmp(i,
+              _v14._1) < 0;}
+         _E.Case($moduleName,
+         "on line 132, column 23 to 42");
+      }();
+   });
+   var fromMaybeWithDefault = F2(function (a,
+   ma) {
+      return function () {
+         switch (ma.ctor)
+         {case "Just": return ma._0;
+            case "Nothing": return a;}
+         _E.Case($moduleName,
+         "between lines 125 and 128");
+      }();
+   });
+   var prolongCell = F2(function (c,
+   b) {
+      return b;
+   });
+   var onUnits = F2(function (_v20,
+   f) {
+      return function () {
+         return _U.replace([["units"
+                            ,f(_v20.units)]],
+         _v20);
+      }();
+   });
+   var killCell = F2(function (c,
+   b) {
+      return onUnits(b)(Dict.remove(c));
+   });
+   var reviveCell = F2(function (c,
+   b) {
+      return onUnits(b)(A2(Dict.insert,
+      c,
+      {ctor: "_Tuple0"}));
+   });
+   var processCell = F3(function (coords,
+   neigh,
+   board) {
+      return function () {
+         switch (neigh)
+         {case 0: return A2(killCell,
+              coords,
+              board);
+            case 1: return A2(killCell,
+              coords,
+              board);
+            case 2: return A2(prolongCell,
+              coords,
+              board);
+            case 3: return A2(reviveCell,
+              coords,
+              board);}
+         return A2(killCell,
+         coords,
+         board);
+      }();
+   });
+   var aliveCell = F2(function (c,
+   _v23) {
+      return function () {
+         return !_U.eq(A2(Dict.lookup,
+         c,
+         _v23.units),
+         Maybe.Nothing);
+      }();
+   });
+   var neighbours = F2(function (x,
+   y) {
+      return _J.toList([{ctor: "_Tuple2"
+                        ,_0: x - 1
+                        ,_1: y}
+                       ,{ctor: "_Tuple2"
+                        ,_0: x + 1
+                        ,_1: y}
+                       ,{ctor: "_Tuple2"
+                        ,_0: x
+                        ,_1: y - 1}
+                       ,{ctor: "_Tuple2"
+                        ,_0: x
+                        ,_1: y + 1}
+                       ,{ctor: "_Tuple2"
+                        ,_0: x - 1
+                        ,_1: y - 1}
+                       ,{ctor: "_Tuple2"
+                        ,_0: x + 1
+                        ,_1: y + 1}
+                       ,{ctor: "_Tuple2"
+                        ,_0: x + 1
+                        ,_1: y - 1}
+                       ,{ctor: "_Tuple2"
+                        ,_0: x - 1
+                        ,_1: y + 1}]);
+   });
+   var countNeighbours = F3(function (b,
+   x,
+   y) {
+      return A2(List.foldl,
+      F2(function (x,y) {
+         return x + y;
+      }),
+      0)(List.map(function (c) {
+         return A2(aliveCell,
+         c,
+         b) ? 1 : 0;
+      })(A2(neighbours,x,y)));
+   });
+   var updateBoard = function (_v25) {
+      return function () {
+         return A2(List.foldl,
+         function (_v31) {
+            return function () {
+               switch (_v31.ctor)
+               {case "_Tuple3":
+                  return A2(processCell,
+                    {ctor: "_Tuple2"
+                    ,_0: _v31._0
+                    ,_1: _v31._1},
+                    _v31._2);}
+               _E.Case($moduleName,
+               "on line 111, column 59 to 78");
+            }();
+         },
+         _v25)(List.map(function (_v27) {
+            return function () {
+               switch (_v27.ctor)
+               {case "_Tuple2":
+                  return {ctor: "_Tuple3"
+                         ,_0: _v27._0
+                         ,_1: _v27._1
+                         ,_2: A3(countNeighbours,
+                         _v25,
+                         _v27._0,
+                         _v27._1)};}
+               _E.Case($moduleName,
+               "on line 112, column 19 to 49");
+            }();
+         })(allPairs(_v25.size)));
+      }();
+   };
+   var repeat = F3(function (i,
+   a,
+   f) {
+      return function () {
+         switch (i)
+         {case 0: return a;}
+         return A3(repeat,i - 1,f(a),f);
+      }();
+   });
+   var Game = function (a) {
+      return {ctor: "Game",_0: a};
+   };
+   var click = F2(function (cords,
+   _v37) {
+      return function () {
+         switch (_v37.ctor)
+         {case "Game":
+            return Game(_U.replace([["board"
+                                    ,A2(aliveCell,
+                                    cords,
+                                    _v37._0.board) ? A2(killCell,
+                                    cords,
+                                    _v37._0.board) : A2(reviveCell,
+                                    cords,
+                                    _v37._0.board)]],
+              _v37._0));}
+         _E.Case($moduleName,
+         "on line 130, column 37 to 134");
+      }();
+   });
+   var addClick = F2(function (comp,
+   _v40) {
+      return function () {
+         switch (_v40.ctor)
+         {case "Game":
+            return Game(_U.replace([["clicks"
+                                    ,{ctor: "::"
+                                     ,_0: comp
+                                     ,_1: A2(List.take,
+                                     29,
+                                     _v40._0.clicks)}]],
+              _v40._0));}
+         _E.Case($moduleName,
+         "on line 137, column 40 to 82");
+      }();
+   });
+   var handleClick = F2(function (comp,
+   _v43) {
+      return function () {
+         switch (_v43.ctor)
+         {case "Game":
+            return insideBoard(comp) && (_U.eq(_v43._0.clicks,
+              _J.toList([])) || !_U.eq(comp,
+              List.head(_v43._0.clicks))) ? click(comp)(addClick(comp)(Game(_v43._0))) : Game(_v43._0);}
+         _E.Case($moduleName,
+         "between lines 139 and 141");
+      }();
+   });
+   var Board = F2(function (a,b) {
+      return {_: {}
+             ,size: a
+             ,units: b};
+   });
+   var Playing = {ctor: "Playing"};
+   var displayState = function (state) {
+      return Graphics.Collage.scale(8)(Graphics.Collage.toForm(_U.eq(state,
+      Playing) ? Graphics.Element.empty : Text.asText(state)));
+   };
+   var Paused = {ctor: "Paused"};
+   var updateGame = F2(function (delta,
+   _v46) {
+      return function () {
+         switch (_v46.ctor)
+         {case "Game":
+            return function () {
+                 var _v49 = _v46._0.state;
+                 switch (_v49.ctor)
+                 {case "Paused":
+                    return Game(_v46._0);
+                    case "Playing":
+                    return function () {
+                         var dt = 1 / Basics.toFloat(_v46._0.speed);
+                         return Game(_U.cmp(_v46._0.timeDelta,
+                         dt) > 0 ? _U.replace([["timeDelta"
+                                               ,0]
+                                              ,["board"
+                                               ,updateBoard(_v46._0.board)]],
+                         _v46._0) : _U.replace([["timeDelta"
+                                                ,_v46._0.timeDelta + delta]],
+                         _v46._0));
+                      }();}
+                 _E.Case($moduleName,
+                 "between lines 115 and 122");
+              }();}
+         _E.Case($moduleName,
+         "between lines 115 and 122");
+      }();
+   });
+   var defaultState = Paused;
+   var Constants = F8(function (a,
+   b,
+   c,
+   d,
+   e,
+   f,
+   g,
+   h) {
+      return {_: {}
+             ,offset: e
+             ,scale: d
+             ,size: a
+             ,tileButtonDown: g
+             ,tileButtonHover: h
+             ,tileButtonUp: f
+             ,tileSize: b
+             ,winSize: c};
+   });
+   var clearRed = A4(Color.rgba,
+   200,
+   100,
+   100,
+   255);
+   var noColor = A4(Color.rgba,
+   0,
+   0,
+   0,
+   0);
+   var alphaRed = A4(Color.rgba,
+   200,
+   100,
+   100,
+   128);
+   var defaultOffset = 40;
+   var defaultSize = {_: {}
+                     ,x: 20
+                     ,y: 20};
+   var defaultTileSize = {_: {}
+                         ,x: 20
+                         ,y: 20};
+   var makeTile = function (color) {
+      return A3(Graphics.Collage.collage,
+      defaultTileSize.x,
+      defaultTileSize.y,
+      _J.toList([Graphics.Collage.filled(color)(A2(Graphics.Collage.oval,
+      Basics.toFloat(defaultTileSize.x),
+      Basics.toFloat(defaultTileSize.y)))]));
+   };
+   var defaultUp = makeTile(noColor);
+   var defaultDown = makeTile(clearRed);
+   var defaultHover = makeTile(alphaRed);
+   var defaultScale = 0.95;
+   var tileButtons = Graphics.Input.customButtons({ctor: "_Tuple2"
+                                                  ,_0: -1
+                                                  ,_1: -1});
+   var dot2 = F4(function (f,
+   a,
+   x,
+   y) {
+      return f(A2(a,x,y));
+   });
+   var fromInput = function (_v50) {
+      return function () {
+         switch (_v50.ctor)
+         {case "_Tuple2": return {_: {}
+                                 ,element: _v50._0
+                                 ,update: _v50._1};}
+         _E.Case($moduleName,
+         "on line 27, column 29 to 59");
+      }();
+   };
+   var checkBox = fromInput(Graphics.Input.checkbox(true));
+   var dropDown = fromInput(Graphics.Input.stringDropDown(_J.toList(["1"
+                                                                    ,"2"
+                                                                    ,"3"
+                                                                    ,"4"
+                                                                    ,"8"
+                                                                    ,"16"
+                                                                    ,"32"
+                                                                    ,"64"
+                                                                    ,"128"
+                                                                    ,"256"])));
+   var MutableElement = F2(function (a,
+   b) {
+      return {_: {}
+             ,element: b
+             ,update: a};
+   });
+   var clock = A2(Signal._op["<~"],
+   Time.inSeconds,
+   Time.fps(25));
+   var DropDown = function (a) {
+      return {ctor: "DropDown"
+             ,_0: a};
+   };
+   var Checkbox = function (a) {
+      return {ctor: "Checkbox"
+             ,_0: a};
+   };
+   var Click = function (a) {
+      return {ctor: "Click",_0: a};
+   };
+   var Time = function (a) {
+      return {ctor: "Time",_0: a};
+   };
+   var input = Signal.combine(List.reverse(_J.toList([A2(Signal._op["<~"],
+                                                     function ($) {
+                                                        return Time(function (v) {
+                                                           return {_: {}
+                                                                  ,delta: v};
+                                                        }($));
+                                                     },
+                                                     clock)
+                                                     ,A2(Signal._op["<~"],
+                                                     function ($) {
+                                                        return Click(function (c) {
+                                                           return {_: {}
+                                                                  ,comp: c};
+                                                        }($));
+                                                     },
+                                                     tileButtons.events)
+                                                     ,A2(Signal._op["~"],
+                                                     A2(Signal._op["<~"],
+                                                     A2(dot2,
+                                                     Checkbox,
+                                                     F2(function (b,e) {
+                                                        return {_: {}
+                                                               ,element: e
+                                                               ,isChecked: b};
+                                                     })),
+                                                     checkBox.update),
+                                                     checkBox.element)
+                                                     ,A2(Signal._op["~"],
+                                                     A2(Signal._op["<~"],
+                                                     A2(dot2,
+                                                     DropDown,
+                                                     F2(function (d,e) {
+                                                        return {_: {}
+                                                               ,element: e
+                                                               ,name: d};
+                                                     })),
+                                                     dropDown.update),
+                                                     dropDown.element)])));
+   var stepGame = function (inp) {
+      return function () {
+         switch (inp.ctor)
+         {case "Checkbox":
+            return function (_v59) {
+                 return function () {
+                    switch (_v59.ctor)
+                    {case "Game":
+                       return Game(_U.replace([["checkBox"
+                                               ,inp._0.element]
+                                              ,["state"
+                                               ,inp._0.isChecked ? Paused : Playing]],
+                         _v59._0));}
+                    _E.Case($moduleName,
+                    "on line 148, column 52 to 130");
+                 }();
+              };
+            case "Click":
+            return handleClick(inp._0.comp);
+            case "DropDown":
+            return function (_v62) {
+                 return function () {
+                    switch (_v62.ctor)
+                    {case "Game":
+                       return Game(function () {
+                            var speed$ = fromMaybeWithDefault(1)(String.toInt(inp._0.name));
+                            return _U.replace([["dropDown"
+                                               ,inp._0.element]
+                                              ,["speed",speed$]],
+                            _v62._0);
+                         }());}
+                    _E.Case($moduleName,
+                    "between lines 149 and 153");
+                 }();
+              };
+            case "Time":
+            return updateGame(inp._0.delta);}
+         _E.Case($moduleName,
+         "between lines 145 and 153");
+      }();
+   };
+   var stepGameList = F2(function (ins,
+   game) {
+      return A3(List.foldl,
+      stepGame,
+      game,
+      ins);
+   });
+   var fromTuple = function (_v65) {
+      return function () {
+         switch (_v65.ctor)
+         {case "_Tuple2": return {_: {}
+                                 ,x: _v65._0
+                                 ,y: _v65._1};}
+         _E.Case($moduleName,
+         "on line 18, column 20 to 32");
+      }();
+   };
+   var toComp = function (_v69) {
+      return function () {
+         return {ctor: "_Tuple2"
+                ,_0: _v69.x
+                ,_1: _v69.y};
+      }();
+   };
+   var constants = function () {
+      var $ = toComp(defaultTileSize),
+      tx = $._0,
+      ty = $._1;
+      var $ = toComp(defaultSize),
+      x = $._0,
+      y = $._1;
+      return A8(Constants,
+      defaultSize,
+      defaultTileSize,
+      fromTuple({ctor: "_Tuple2"
+                ,_0: tx * (x + 1)
+                ,_1: ty * (y + 1)}),
+      defaultScale,
+      defaultOffset,
+      defaultUp,
+      defaultDown,
+      defaultHover);
+   }();
+   var fromStr = function (s) {
+      return List.concatMap(function (_v71) {
+         return function () {
+            switch (_v71.ctor)
+            {case "_Tuple2":
+               return List.map(function (x) {
+                    return {ctor: "_Tuple2"
+                           ,_0: x
+                           ,_1: _v71._0};
+                 })(A2(String.indexes,
+                 "1",
+                 _v71._1));}
+            _E.Case($moduleName,
+            "on line 173, column 34 to 75");
+         }();
+      })(List.zip(_L.range(0,
+      constants.size.y))(String.lines(s)));
+   };
+   var defaultBoard = {_: {}
+                      ,size: constants.size
+                      ,units: A2(List.foldl,
+                      appl2(Dict.insert),
+                      Dict.empty)(List.map(function (_v75) {
+                         return function () {
+                            switch (_v75.ctor)
+                            {case "_Tuple2":
+                               return {ctor: "_Tuple2"
+                                      ,_0: _v75._0
+                                      ,_1: _v75._1};}
+                            _E.Case($moduleName,
+                            "on line 177, column 19 to 59");
+                         }();
+                      })(fromStr("0000000\n             0111010\n             0100000\n             0000110\n             0011010\n             0101010\n             0000000")))};
+   var defaultGame = Game({_: {}
+                          ,board: defaultBoard
+                          ,checkBox: Graphics.Element.empty
+                          ,clicks: _J.toList([])
+                          ,dropDown: Graphics.Element.empty
+                          ,speed: 1
+                          ,state: defaultState
+                          ,timeDelta: 0});
+   var gameState = A3(Signal.foldp,
+   stepGameList,
+   defaultGame,
+   input);
+   var placeTile = function (_v79) {
+      return function () {
+         switch (_v79.ctor)
+         {case "_Tuple2":
+            return Graphics.Collage.move({ctor: "_Tuple2"
+                                         ,_0: Basics.toFloat((_v79._0 + 1) * constants.tileSize.x - (constants.winSize.x / 2 | 0))
+                                         ,_1: Basics.toFloat((_v79._1 + 1) * constants.tileSize.y - (constants.winSize.y / 2 | 0))});}
+         _E.Case($moduleName,
+         "on line 192, column 19 to 165");
+      }();
+   };
+   var circleAt = function (_v83) {
+      return function () {
+         switch (_v83.ctor)
+         {case "_Tuple2":
+            return Graphics.Collage.filled(Color.white)(A2(Graphics.Collage.oval,
+              Basics.toFloat(constants.tileSize.x),
+              Basics.toFloat(constants.tileSize.y)));}
+         _E.Case($moduleName,
+         "on line 195, column 31 to 111");
+      }();
+   };
+   var crossAt = function (_v87) {
+      return function () {
+         switch (_v87.ctor)
+         {case "_Tuple2":
+            return Graphics.Collage.outlined(Graphics.Collage.defaultLine)(A2(Graphics.Collage.rect,
+              Basics.toFloat(constants.tileSize.x),
+              Basics.toFloat(constants.tileSize.y)));}
+         _E.Case($moduleName,
+         "on line 197, column 30 to 118");
+      }();
+   };
+   var displayTile = F2(function (d,
+   p) {
+      return placeTile(p)(!_U.eq(A2(Dict.lookup,
+      p,
+      d),
+      Maybe.Nothing) ? circleAt(p) : crossAt(p));
+   });
+   var displayButton = function (p) {
+      return placeTile(p)(Graphics.Collage.toForm(A4(tileButtons.customButton,
+      p,
+      constants.tileButtonUp,
+      constants.tileButtonHover,
+      constants.tileButtonDown)));
+   };
+   var displayBoard = function (_v91) {
+      return function () {
+         return Graphics.Collage.group(List.map(displayTile(_v91.units))(allPairs(fromTuple({ctor: "_Tuple2"
+                                                                                            ,_0: constants.size.x
+                                                                                            ,_1: constants.size.y}))));
+      }();
+   };
+   var displayButtons = Graphics.Collage.group(List.map(displayButton)(allPairs(fromTuple({ctor: "_Tuple2"
+                                                                                          ,_0: constants.size.x
+                                                                                          ,_1: constants.size.y}))));
+   var boxSize = F4(function (fw,
+   fh,
+   tw,
+   th) {
+      return A2(Basics.min,
+      fw / tw * constants.scale,
+      fh / th * constants.scale);
+   });
+   var scaleElement = F3(function (w,
+   h,
+   el) {
+      return function () {
+         var fw = Basics.toFloat(w);
+         var fh = Basics.toFloat(h);
+         return A3(Graphics.Collage.collage,
+         w,
+         h,
+         _J.toList([Graphics.Collage.scale(A4(boxSize,
+         fw,
+         fh,
+         Basics.toFloat(Graphics.Element.widthOf(el)),
+         Basics.toFloat(Graphics.Element.heightOf(el))))(Graphics.Collage.toForm(el))]));
+      }();
+   });
+   var unScale = F2(function (_v93,
+   _v94) {
+      return function () {
+         switch (_v94.ctor)
+         {case "_Tuple2":
+            return function () {
+                 switch (_v93.ctor)
+                 {case "_Tuple2":
+                    return function () {
+                         var scale = A4(boxSize,
+                         Basics.toFloat(_v93._0),
+                         Basics.toFloat(_v93._1),
+                         Basics.toFloat(constants.winSize.x),
+                         Basics.toFloat(constants.winSize.y));
+                         var cy$ = _v94._1 + constants.offset;
+                         return times({ctor: "_Tuple2"
+                                      ,_0: function (x) {
+                                         return x - (constants.size.x / 2 | 0);
+                                      }
+                                      ,_1: function (y) {
+                                         return constants.size.y - y;
+                                      }})({ctor: "_Tuple2"
+                                          ,_0: Basics.floor(Basics.toFloat(_v94._0 - 3 * constants.tileSize.x + 2) / scale / Basics.toFloat(constants.tileSize.x))
+                                          ,_1: Basics.floor(Basics.toFloat(cy$ - 4 * constants.tileSize.y) / scale / Basics.toFloat(constants.tileSize.y))});
+                      }();}
+                 _E.Case($moduleName,
+                 "between lines 221 and 225");
+              }();}
+         _E.Case($moduleName,
+         "between lines 221 and 225");
+      }();
+   });
+   var display = F2(function (_v101,
+   _v102) {
+      return function () {
+         switch (_v102.ctor)
+         {case "Game":
+            return function () {
+                 switch (_v101.ctor)
+                 {case "_Tuple2":
+                    return function () {
+                         var w$ = _v101._0 - 60;
+                         var h$ = _v101._1 - constants.offset;
+                         return Graphics.Element.layers(_J.toList([A2(background,
+                                                                  _v101._0,
+                                                                  _v101._1)
+                                                                  ,A3(Graphics.Element.container,
+                                                                  _v101._0,
+                                                                  _v101._1,
+                                                                  Graphics.Element.middle)(A3(Graphics.Collage.collage,
+                                                                  _v101._0,
+                                                                  _v101._1,
+                                                                  _J.toList([displayState(_v102._0.state)])))
+                                                                  ,Graphics.Element.flow(Graphics.Element.down)(List.reverse(_J.toList([Graphics.Element.beside(Graphics.Element.above(Text.plainText("Clicks:"))(Graphics.Element.width(60)(Text.asText(A2(List.take,
+                                                                                                                                       30,
+                                                                                                                                       _v102._0.clicks)))))(A3(Graphics.Element.container,
+                                                                                                                                       w$,
+                                                                                                                                       h$,
+                                                                                                                                       Graphics.Element.middle)(A2(scaleElement,
+                                                                                                                                       w$,
+                                                                                                                                       h$)(A2(Graphics.Collage.collage,
+                                                                                                                                       constants.winSize.x,
+                                                                                                                                       constants.winSize.y)(_J.toList([displayBoard(_v102._0.board)
+                                                                                                                                                                      ,displayButtons])))))
+                                                                                                                                       ,A3(Graphics.Element.container,
+                                                                                                                                       _v101._0,
+                                                                                                                                       constants.offset / 2 | 0,
+                                                                                                                                       Graphics.Element.middle)(Graphics.Element.flow(Graphics.Element.left)(A2(List.intersperse,
+                                                                                                                                       A2(Graphics.Element.spacer,
+                                                                                                                                       60,
+                                                                                                                                       10),
+                                                                                                                                       _J.toList([Text.plainText("Speed: ")
+                                                                                                                                                 ,A2(Graphics.Element.width,
+                                                                                                                                                 60,
+                                                                                                                                                 _v102._0.dropDown)
+                                                                                                                                                 ,Text.plainText("Pause: ")
+                                                                                                                                                 ,A2(Graphics.Element.height,
+                                                                                                                                                 20,
+                                                                                                                                                 _v102._0.checkBox)]))))
+                                                                                                                                       ,A2(Graphics.Element.spacer,
+                                                                                                                                       10,
+                                                                                                                                       constants.offset / 2 | 0)])))]));
+                      }();}
+                 _E.Case($moduleName,
+                 "between lines 233 and 243");
+              }();}
+         _E.Case($moduleName,
+         "between lines 233 and 243");
+      }();
+   });
+   var main = A2(Signal._op["~"],
+   A2(Signal._op["<~"],
+   display,
+   Window.dimensions),
+   gameState);
+   var Position = F2(function (a,
+   b) {
+      return {_: {},x: a,y: b};
+   });
+   _elm.Main.values = {_op: _op
+                      ,toComp: toComp
+                      ,fromTuple: fromTuple
+                      ,clock: clock
+                      ,fromInput: fromInput
+                      ,checkBox: checkBox
+                      ,dropDown: dropDown
+                      ,dot2: dot2
+                      ,tileButtons: tileButtons
+                      ,input: input
+                      ,defaultScale: defaultScale
+                      ,defaultTileSize: defaultTileSize
+                      ,defaultSize: defaultSize
+                      ,defaultOffset: defaultOffset
+                      ,makeTile: makeTile
+                      ,alphaRed: alphaRed
+                      ,noColor: noColor
+                      ,clearRed: clearRed
+                      ,defaultUp: defaultUp
+                      ,defaultDown: defaultDown
+                      ,defaultHover: defaultHover
+                      ,constants: constants
+                      ,repeat: repeat
+                      ,neighbours: neighbours
+                      ,aliveCell: aliveCell
+                      ,countNeighbours: countNeighbours
+                      ,onUnits: onUnits
+                      ,killCell: killCell
+                      ,prolongCell: prolongCell
+                      ,reviveCell: reviveCell
+                      ,processCell: processCell
+                      ,updateBoard: updateBoard
+                      ,updateGame: updateGame
+                      ,fromMaybeWithDefault: fromMaybeWithDefault
+                      ,click: click
+                      ,inside: inside
+                      ,insideBoard: insideBoard
+                      ,addClick: addClick
+                      ,handleClick: handleClick
+                      ,stepGame: stepGame
+                      ,stepGameList: stepGameList
+                      ,gameState: gameState
+                      ,defaultGame: defaultGame
+                      ,defaultState: defaultState
+                      ,appl2: appl2
+                      ,fromStr: fromStr
+                      ,defaultBoard: defaultBoard
+                      ,displayState: displayState
+                      ,placeTile: placeTile
+                      ,circleAt: circleAt
+                      ,crossAt: crossAt
+                      ,displayTile: displayTile
+                      ,displayButton: displayButton
+                      ,allPairs: allPairs
+                      ,displayBoard: displayBoard
+                      ,displayButtons: displayButtons
+                      ,scaleElement: scaleElement
+                      ,times: times
+                      ,unScale: unScale
+                      ,boxSize: boxSize
+                      ,bkgColour: bkgColour
+                      ,background: background
+                      ,display: display
+                      ,main: main
+                      ,Time: Time
+                      ,Click: Click
+                      ,Checkbox: Checkbox
+                      ,DropDown: DropDown
+                      ,Paused: Paused
+                      ,Playing: Playing
+                      ,Game: Game
+                      ,Position: Position
+                      ,MutableElement: MutableElement
+                      ,Constants: Constants
+                      ,Board: Board};
+   return _elm.Main.values;
+};</script></head><body><script type="text/javascript">Elm.fullscreen(Elm.Main)</script><noscript></noscript></body></html>
